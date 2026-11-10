@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학물질 유해성 판별기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-full flex flex-col">
+    <!-- 헤더 -->
+    <header class="bg-indigo-600 text-white shadow-md">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2 rounded-xl backdrop-blur-sm">
+                    <i class="fa-solid fa-flask-vial text-2xl text-amber-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">화학물질 유해성 및 발암성 판별기</h1>
+                    <p class="text-xs text-indigo-200">궁금한 화학 물질의 안전 정보를 실시간으로 확인하세요</p>
+                </div>
+            </div>
+            <button onclick="clearHistory()" class="text-xs bg-indigo-700 hover:bg-indigo-800 text-indigo-100 px-3 py-1.5 rounded-lg transition border border-indigo-500">
+                <i class="fa-solid fa-trash-can mr-1"></i> 기록 초기화
+            </button>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-6 flex flex-col space-y-6">
+        <!-- 검색 카드 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <label for="chemicalInput" class="block text-sm font-semibold text-slate-700 mb-2">
+                화학 물질명 입력 (예: 벤젠, 아세톤, 포름알데히드, 에탄올 등)
+            </label>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-grow">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="chemicalInput" placeholder="물질명을 입력하세요..." 
+                        class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition text-slate-700"
+                        onkeypress="handleKeyPress(event)">
+                </div>
+                <button onclick="analyzeChemical()" id="searchBtn"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-xl transition flex items-center justify-center shadow-md shadow-indigo-200 cursor-pointer">
+                    <span id="btnText">분석하기</span>
+                    <i id="btnSpinner" class="fa-solid fa-circle-notch fa-spin ml-2 hidden"></i>
+                </button>
+            </div>
+            
+            <!-- 빠른 추천 태그 -->
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+                <span class="text-xs text-slate-400 font-medium">추천 검색:</span>
+                <button onclick="quickSearch('벤젠')" class="text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-3 py-1 rounded-full transition border border-slate-200">벤젠</button>
+                <button onclick="quickSearch('포름알데히드')" class="text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-3 py-1 rounded-full transition border border-slate-200">포름알데히드</button>
+                <button onclick="quickSearch('에탄올')" class="text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-3 py-1 rounded-full transition border border-slate-200">에탄올</button>
+                <button onclick="quickSearch('석면')" class="text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-3 py-1 rounded-full transition border border-slate-200">석면</button>
+                <button onclick="quickSearch('카페인')" class="text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-3 py-1 rounded-full transition border border-slate-200">카페인</button>
+            </div>
+        </div>
+
+        <!-- 결과 표시 영역 -->
+        <div id="resultContainer" class="hidden space-y-6">
+            <div id="resultCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden transition-all">
+                <!-- 상단 배지 바 -->
+                <div id="badgeBar" class="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100 mb-4">
+                    <div>
+                        <span id="resCategory" class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-slate-100 text-slate-600">분류 대기중</span>
+                        <h2 id="resName" class="text-2xl font-bold text-slate-800 mt-1">물질명</h2>
+                    </div>
+                    <div id="resHazardBadge" class="px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2">
+                        <!-- 유해성 배지 삽입 위치 -->
+                    </div>
+                </div>
+
+                <!-- 상세 정보 그리드 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase mb-1 flex items-center">
+                            <i class="fa-solid fa-triangle-exclamation mr-1.5 text-amber-500"></i> IARC 발암성 등급
+                        </h3>
+                        <p id="resCarcinogen" class="text-slate-700 font-semibold">-</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase mb-1 flex items-center">
+                            <i class="fa-solid fa-skull-crossbones mr-1.5 text-red-500"></i> 주요 유해성 요약
+                        </h3>
+                        <p id="resToxicity" class="text-slate-700 font-semibold">-</p>
+                    </div>
+                </div>
+
+                <!-- 상세 설명 -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center">
+                        <i class="fa-solid fa-circle-info mr-2 text-indigo-500"></i> 상세 설명 및 인체 영향
+                    </h3>
+                    <p id="resDescription" class="text-slate-600 leading-relaxed text-sm bg-indigo-50/50 p-4 rounded-xl border border-indigo-100/60">-</p>
+                </div>
+
+                <!-- 안전 수칙 및 가이드 -->
+                <div>
+                    <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center">
+                        <i class="fa-solid fa-shield-halved mr-2 text-emerald-500"></i> 취급 주의사항 및 안전 가이드
+                    </h3>
+                    <ul id="resSafetyTips" class="space-y-2 text-sm text-slate-600">
+                        <!-- 가이드 리스트 삽입 위치 -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 검색 기록 영역 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-grow">
+            <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center">
+                <i class="fa-solid fa-history mr-2 text-slate-400"></i> 최근 검색 기록
+            </h3>
+            <div id="historyList" class="flex flex-wrap gap-2">
+                <span class="text-xs text-slate-400 italic">아직 검색 기록이 없습니다. 위에서 물질을 검색해보세요.</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+        <p>본 앱은 일반적인 화학물질 안전 정보 참고용이며, 정확한 MSDS(물질안전보건자료)는 공식 기관 자료를 확인하세요.</p>
+    </footer>
+
+    <!-- 에러 모달 -->
+    <div id="errorModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl border border-slate-100 text-center">
+            <div class="w-12 h-12 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <h3 id="modalTitle" class="text-lg font-bold text-slate-800 mb-1">알림</h3>
+            <p id="modalMessage" class="text-sm text-slate-600 mb-5">오류가 발생했습니다.</p>
+            <button onclick="closeModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-xl transition">확인</button>
+        </div>
+    </div>
+
+    <!-- 스크립트 로직 -->
+    <script>
+        let searchHistory = JSON.parse(localStorage.getItem('chem_history') || '[]');
+        renderHistory();
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                analyzeChemical();
+            }
+        }
+
+        function quickSearch(chemName) {
+            document.getElementById('chemicalInput').value = chemName;
+            analyzeChemical();
+        }
+
+        function showAlert(title, message) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('errorModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('errorModal').classList.add('hidden');
+        }
+
+        async function analyzeChemical() {
+            const inputVal = document.getElementById('chemicalInput').value.trim();
+            if (!inputVal) {
+                showAlert('입력 오류', '검색할 화학 물질명을 입력해 주세요.');
+                return;
+            }
+
+            const searchBtn = document.getElementById('searchBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+
+            searchBtn.disabled = true;
+            btnText.innerText = '분석 중...';
+            btnSpinner.classList.remove('hidden');
+
+            try {
+                const systemPrompt = "당신은 전문 화학물질 안전 및 독성학 전문가입니다. 사용자가 입력한 화학물질에 대해 유해물질 여부, 발암물질 여부(IARC 등급 포함), 주요 독성 요약, 상세 설명, 그리고 안전 취급 가이드를 JSON 포맷으로 정확하게 반환해주세요.";
+                const userQuery = `화학 물질 "${inputVal}"에 대한 유해성 정보를 분석해주세요.`;
+
+                const schema = {
+                    type: "OBJECT",
+                    properties: {
+                        chemicalName: { type: "STRING", description: "물질의 표준 이름 (국문 및 화학식)" },
+                        category: { type: "STRING", description: "물질의 화학적 분류 (예: 유기화학물, 중금속, 용매 등)" },
+                        isHazardous: { type: "BOOLEAN", description: "유해물질 또는 독성 물질 여부" },
+                        hazardLevel: { type: "STRING", enum: ["고위험", "주의", "안전/저위험"], description: "유해성 위험 수준" },
+                        carcinogenRating: { type: "STRING", description: "IARC 발암성 등급 (예: Group 1, Group 2A, Group 2B, Group 3, 해당없음 등)" },
+                        toxicitySummary: { type: "STRING", description: "주요 유해성 및 독성 요약 (1~2줄)" },
+                        description: { type: "STRING", description: "인체에 미치는 영향 및 상세 설명" },
+                        safetyTips: {
+                            type: "ARRAY",
+                            items: { type: "STRING" },
+                            description: "취급 시 안전 수칙 및 가이드라인 3~4가지"
+                        }
+                    },
+                    propertyOrdering: ["chemicalName", "category", "isHazardous", "hazardLevel", "carcinogenRating", "toxicitySummary", "description", "safetyTips"]
+                };
+
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: userQuery }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: schema
+                    },
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    }
+                };
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                let response = null;
+                let data = null;
+                let retries = 3;
+                let delay = 1000;
+
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) {
+                            data = await response.json();
+                            break;
+                        }
+                    } catch (e) {
+                        // 재시도 로직
+                    }
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+
+                if (!data || !data.candidates || data.candidates.length === 0) {
+                    throw new Error("API 응답을 받지 못했습니다.");
+                }
+
+                const jsonText = data.candidates[0].content.parts[0].text;
+                const result = JSON.parse(jsonText);
+
+                displayResult(result);
+                addToHistory(inputVal);
+
+            } catch (err) {
+                showAlert('분석 실패', '정보를 분석하는 동안 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+            } finally {
+                searchBtn.disabled = false;
+                btnText.innerText = '분석하기';
+                btnSpinner.classList.add('hidden');
+            }
+        }
+
+        function displayResult(data) {
+            const container = document.getElementById('resultContainer');
+            container.classList.remove('hidden');
+
+            document.getElementById('resName').innerText = data.chemicalName;
+            document.getElementById('resCategory').innerText = data.category;
+            document.getElementById('resCarcinogen').innerText = data.carcinogenRating;
+            document.getElementById('resToxicity').innerText = data.toxicitySummary;
+            document.getElementById('resDescription').innerText = data.description;
+
+            // 위험 등급 배지 설정
+            const badgeContainer = document.getElementById('resHazardBadge');
+            badgeContainer.innerHTML = '';
+            
+            if (data.hazardLevel === '고위험') {
+                badgeContainer.className = 'px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 bg-rose-100 text-rose-700 border border-rose-200';
+                badgeContainer.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>고위험 유해물질</span>`;
+            } else if (data.hazardLevel === '주의') {
+                badgeContainer.className = 'px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 bg-amber-100 text-amber-700 border border-amber-200';
+                badgeContainer.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i><span>주의 필요</span>`;
+            } else {
+                badgeContainer.className = 'px-4 py-2 rounded-xl text-sm font-bold flex items-center space-x-2 bg-emerald-100 text-emerald-700 border border-emerald-200';
+                badgeContainer.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>비교적 안전/저위험</span>`;
+            }
+
+            // 안전 가이드 리스트 렌더링
+            const tipsList = document.getElementById('resSafetyTips');
+            tipsList.innerHTML = '';
+            data.safetyTips.forEach(tip => {
+                const li = document.createElement('li');
+                li.className = 'flex items-start space-x-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100';
+                li.innerHTML = `<i class="fa-solid fa-check text-emerald-500 mt-1 flex-shrink-0"></i><span>${tip}</span>`;
+                tipsList.appendChild(li);
+            });
+
+            // 부드러운 스크롤 이동
+            container.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function addToHistory(term) {
+            if (!searchHistory.includes(term)) {
+                searchHistory.unshift(term);
+                if (searchHistory.length > 10) searchHistory.pop();
+                localStorage.setItem('chem_history', JSON.stringify(searchHistory));
+                renderHistory();
+            }
+        }
+
+        function renderHistory() {
+            const listEl = document.getElementById('historyList');
+            if (searchHistory.length === 0) {
+                listEl.innerHTML = `<span class="text-xs text-slate-400 italic">아직 검색 기록이 없습니다. 위에서 물질을 검색해보세요.</span>`;
+                return;
+            }
+
+            listEl.innerHTML = '';
+            searchHistory.forEach(term => {
+                const btn = document.createElement('button');
+                btn.className = 'text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 px-3 py-1.5 rounded-lg transition border border-slate-200 flex items-center space-x-1.5';
+                btn.innerHTML = `<span>${term}</span>`;
+                btn.onclick = () => {
+                    document.getElementById('chemicalInput').value = term;
+                    analyzeChemical();
+                };
+                listEl.appendChild(btn);
+            });
+        }
+
+        function clearHistory() {
+            searchHistory = [];
+            localStorage.removeItem('chem_history');
+            renderHistory();
+        }
+    </script>
+</body>
+</html>
